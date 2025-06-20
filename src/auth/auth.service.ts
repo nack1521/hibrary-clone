@@ -23,12 +23,17 @@ export class AuthService {
       return {
         email: result.email,
         userId: result._id, // Assuming you want to return the user ID
+        roles: result.roles,
       }
     }
     return null;
   }
   async login(user: any) {
-    const payload = { email: user.email, sub: user.userId };
+    const payload = { 
+      sub: user.userId,           // Standard JWT field for user ID
+      email: user.email,
+      roles: user.roles,
+    };
     const token = this.jwtService.sign(payload)
     const refreshToken = this.jwtService.sign(payload, this.refreshTokenConfig);
     return {

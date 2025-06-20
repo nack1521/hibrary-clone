@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { CategoriesModule } from './categories/categories.module';
 import { BooksModule } from './books/books.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { BooksModule } from './books/books.module';
     }),
     MongooseModule.forRoot('mongodb://localhost/27017', {dbName: 'auth-passport'}),
     AuthModule, 
-    UserModule, CategoriesModule, BooksModule
+    UserModule, CategoriesModule, BooksModule, TransactionsModule
   ],
   controllers: [AppController],
   providers: [AppService],
