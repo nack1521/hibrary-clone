@@ -1,3 +1,5 @@
+import { IsBoolean, IsOptional } from "class-validator";
+
 export class UpdateBookDto {
     book_name?: string;
     book_author?: string;
@@ -6,4 +8,8 @@ export class UpdateBookDto {
     book_reader_url?: string;
     book_borrow_count?: number;
     categories?: string[]; // Assuming _id is a string representation of ObjectId
+
+    @IsOptional()
+    @IsBoolean()
+    isAvailable?: boolean;
 }

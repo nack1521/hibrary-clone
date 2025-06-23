@@ -62,8 +62,6 @@ export class TransactionsService {
       expiresAt,
     });
 
-    console.log('Transaction object before save:', transaction.toObject());
-
     return await transaction.save();
   }
 

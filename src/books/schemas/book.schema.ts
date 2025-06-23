@@ -32,6 +32,9 @@ export class Book {
         ]
     })
     categories: { _id : Types.ObjectId, cate_name: string }[];
+
+    @Prop({ type: Boolean, default: true })
+    isAvailable: boolean;
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);

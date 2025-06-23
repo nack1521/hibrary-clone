@@ -1,8 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 
 export type UserDocument = User & Document;
+
+export interface BorrowedBook {
+  token: string;
+  bookId: Types.ObjectId;
+  dateCreated: Date;
+}
 
 @Schema()
 export class User {
@@ -20,6 +26,16 @@ export class User {
 
   @Prop({ type: [String], default: ['user'] })
   roles: string[]
+
+  @Prop({
+    type: [{
+      token: { type: String, required: true },
+      bookId: { type: Types.ObjectId, ref: 'Book', required: true },
+      dateCreated: { type: Date, default: Date.now }
+    }],
+    default: []
+  })
+  books: BorrowedBook[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -5,12 +5,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Book, BookDocument } from './schemas/book.schema';
 import { CategoriesService } from 'src/categories/categories.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class BooksService {
   constructor(
     @InjectModel(Book.name) private bookModel: Model<BookDocument>,
-    private categoryService: CategoriesService
+    private categoryService: CategoriesService,
+    private userService: UserService,
   ) {}
 
   async create(createBookDto: CreateBookDto): Promise<Book> {
@@ -75,8 +77,6 @@ export class BooksService {
     return { message: 'Book deleted successfully'};
   }
 
-  // ...existing code...
-
 async getTopBorrowedBooks(limit: number = 10) {
   const books = await this.bookModel
     .find()
@@ -93,5 +93,4 @@ async getTopBorrowedBooks(limit: number = 10) {
   };
 }
 
-// ...existing code...
 }

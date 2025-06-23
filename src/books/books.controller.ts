@@ -7,15 +7,16 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { BookTokenGuard } from '../common/guards/book-token.guard';
 import { TransactionsService } from '../transactions/transactions.service';
+import { UserService } from 'src/user/user.service';
 
 @Controller('books')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BooksController {
   constructor(
     private readonly booksService: BooksService,
-    private readonly transactionsService: TransactionsService
+    private readonly transactionsService: TransactionsService,
+    private readonly userService: UserService,
   ) {}
-
   @Post()
   @Roles("admin")
   create(@Body() createBookDto: CreateBookDto) {
@@ -57,11 +58,6 @@ export class BooksController {
   @Post(':bookId/borrow')
   @Roles("admin", "user")
   async borrowBook(@Param('bookId') bookId: string, @Req() request) {
-    // Debug: Log the request.user object
-    console.log('Request user:', request.user);
-    console.log('User ID (id):', request.user?.id);
-    console.log('User ID (_id):', request.user?._id);
-    console.log('Book ID:', bookId);
 
     // Try both id and _id properties
     const userId = request.user?.id || request.user?._id;
@@ -76,6 +72,12 @@ export class BooksController {
         userId: userId.toString(), // Ensure it's a string
         bookId
       });
+
+      await this.userService.addBorrowedBook(
+        userId.toString(),
+        bookId,
+        transaction.token
+      );
 
       return {
         message: 'Book borrowed successfully',
@@ -99,4 +101,30 @@ export class BooksController {
       token: transaction.token
     };
   }
+
+  @Post(':bookId/return')
+@Roles("admin", "user")
+async returnBook(@Param('bookId') bookId: string, @Req() request) {
+  const userId = request.user?.id || request.user?._id;
+  const token = request.headers['book-token'] || request.body.token;
+  
+  if (!userId || !token) {
+    throw new UnauthorizedException('User ID and token are required');
+  }
+
+  try {
+    // Deactivate transaction
+    await this.transactionsService.deactivateTransaction(token);
+    
+    // Remove borrowed book from user's books array
+    await this.userService.removeBorrowedBook(userId.toString(), token);
+
+    return {
+      message: 'Book returned successfully'
+    };
+  } catch (error) {
+    console.error('Error returning book:', error);
+    throw error;
+  }
+}
 }
