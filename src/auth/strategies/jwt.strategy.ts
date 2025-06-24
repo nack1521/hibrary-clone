@@ -11,18 +11,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private jwtConfiguration: ConfigType<typeof jwtConfig>,
   ) 
   {
-    
     if (!jwtConfiguration.secret) {
       throw new Error('JWT secret is not defined in configuration');
     }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: jwtConfiguration.secret, // Use the secret from environment variables
-      ignoreExpiration: false, // Ensure that the token expiration is checked
+      secretOrKey: jwtConfiguration.secret,
+      ignoreExpiration: false,
     });
   }
 
   async validate(payload: any) {
-    return { userId: payload.sub, email: payload.email };
+    const userId = payload.sub;
+    
+    const user = {
+      id: userId,
+      email: payload.email,
+      roles: payload.roles || payload.role || []
+    };
+    
+    return user;
   }
 }
