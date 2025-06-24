@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Req, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { BooksService } from './books.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
@@ -37,6 +37,22 @@ export class BooksController {
     return this.booksService.findAll();
   }
 
+  @Get('my-borrowed')
+  @UseGuards(JwtAuthGuard)
+  async getUserBorrowedBooks(@Req() req) {
+    console.log('Request user:', req.user); // Add this to debug
+    
+    // Extract user ID from the authenticated user
+    const userId = req.user._id || req.user.id;
+    console.log('Extracted userId:', userId);
+    
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    
+    return this.booksService.getUserBorrowedBooks(userId.toString());
+  }
+
   @Get(':id')
   @Roles("admin","user")
   findOne(@Param('id') id: string) {
@@ -68,8 +84,22 @@ export class BooksController {
     }
 
     try {
+      // Check if user already has this book in their books array
+      const user = await this.userService.findById(userId.toString());
+      
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Check if the book is already in user's books array
+      const hasBook = user.books.some(book => book.bookId.toString() === bookId);
+      
+      if (hasBook) {
+        throw new BadRequestException('You have already borrowed this book');
+      }
+
       const transaction = await this.transactionsService.createTransaction({
-        userId: userId.toString(), // Ensure it's a string
+        userId: userId.toString(),
         bookId
       });
 
@@ -78,6 +108,8 @@ export class BooksController {
         bookId,
         transaction.token
       );
+
+      await this.booksService.incrementBorrowCount(bookId);
 
       return {
         message: 'Book borrowed successfully',
@@ -91,7 +123,7 @@ export class BooksController {
   }
 
   @Get(':bookId/read')
-  @UseGuards(BookTokenGuard) // Remove JwtAuthGuard since it's already applied globally
+  @UseGuards(BookTokenGuard) 
   async readBook(@Param('bookId') bookId: string, @Req() request) {
     const transaction = request.transaction;
     return {
@@ -103,28 +135,29 @@ export class BooksController {
   }
 
   @Post(':bookId/return')
-@Roles("admin", "user")
-async returnBook(@Param('bookId') bookId: string, @Req() request) {
-  const userId = request.user?.id || request.user?._id;
-  const token = request.headers['book-token'] || request.body.token;
-  
-  if (!userId || !token) {
-    throw new UnauthorizedException('User ID and token are required');
-  }
-
-  try {
-    // Deactivate transaction
-    await this.transactionsService.deactivateTransaction(token);
+  @Roles("admin", "user")
+  async returnBook(@Param('bookId') bookId: string, @Req() request) {
+    const userId = request.user?.id || request.user?._id;
+    const token = request.headers['book-token'] || request.body.token;
     
-    // Remove borrowed book from user's books array
-    await this.userService.removeBorrowedBook(userId.toString(), token);
+    if (!userId || !token) {
+      throw new UnauthorizedException('User ID and token are required');
+    }
 
-    return {
-      message: 'Book returned successfully'
-    };
-  } catch (error) {
-    console.error('Error returning book:', error);
-    throw error;
+    try {
+      // Deactivate transaction
+      await this.transactionsService.deactivateTransaction(token);
+      
+      // Remove borrowed book from user's books array
+      await this.userService.removeBorrowedBook(userId.toString(), token);
+
+      return {
+        message: 'Book returned successfully'
+      };
+    } catch (error) {
+      console.error('Error returning book:', error);
+      throw error;
+    }
   }
-}
+  
 }

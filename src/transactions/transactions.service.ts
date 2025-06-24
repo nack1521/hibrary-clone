@@ -53,7 +53,8 @@ export class TransactionsService {
     const bookObjectId = Types.ObjectId.isValid(bookId) ? new Types.ObjectId(bookId) : bookId;
 
     const token = uuidv4();
-    const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)+ (7 * 60 * 60 * 1000));
+    //const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+    const expiresAt = new Date(Date.now() + (2 * 60 * 1000));
 
     const transaction = new this.transactionModel({
       userId: userObjectId,
