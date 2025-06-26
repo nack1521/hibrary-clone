@@ -14,7 +14,7 @@ export class TransactionsService {
   async getUserTransactions(userId: string): Promise<Transaction[]> {
     return await this.transactionModel
       .find({ userId })
-      .populate('bookId', 'name author coverImage')
+      .populate('bookId', 'book_name book_author book_cover_image_url')
       .sort({ startTime: -1 });
   }
 
@@ -22,7 +22,7 @@ export class TransactionsService {
     return await this.transactionModel
       .find()
       .populate('userId', 'name surname email')
-      .populate('bookId', 'name author coverImage')
+      .populate('bookId', 'book_name book_author book_cover_image_url')
       .sort({ startTime: -1 });
   }
 
@@ -53,8 +53,8 @@ export class TransactionsService {
     const bookObjectId = Types.ObjectId.isValid(bookId) ? new Types.ObjectId(bookId) : bookId;
 
     const token = uuidv4();
-    //const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
-    const expiresAt = new Date(Date.now() + (2 * 60 * 1000));
+    const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+    //const expiresAt = new Date(Date.now() + (2 * 60 * 1000));
 
     const transaction = new this.transactionModel({
       userId: userObjectId,

@@ -9,7 +9,8 @@ import {
   NotFoundException, 
   Patch,
   Delete,
-  Param
+  Param,
+  Query
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -66,14 +67,17 @@ export class UserController {
 
   @Roles('admin')
   @Delete()
-  async deleteUser(@Request() req) {
+  async softDeleteUser(@Request() req) {
     if (!req.user || !req.user.id) {
       throw new UnauthorizedException('User not authenticated');
     }
     const userId = req.user.id;
     try {
-      const result = await this.userService.deleteUser(userId);
-      return result; // Returns { message: 'User deleted successfully' }
+      const result = await this.userService.softDeleteUser(userId, req.user.email);
+      return { 
+        message: 'User deleted successfully',
+        deletedUser: result
+      };
     } catch (error) {
       throw new NotFoundException('User not found');
     }
@@ -81,14 +85,31 @@ export class UserController {
 
   @Roles('admin')
   @Get('all')
-  async getAllUsers() {
+  async getAllUsers(@Query('includeDeleted') includeDeleted?: string) {
+    if (includeDeleted === 'true') {
+      return this.userService.getAllUsersIncludingDeleted();
+    }
     return this.userService.getAllUsers();
   }
 
   @Roles('admin')
+  @Get('deleted')
+  async getDeletedUsers() {
+    return this.userService.getDeletedUsers();
+  }
+
+  @Roles('admin')
   @Get(':id')
-  async getUserById(@Param('id') id: string) {
-    const user = await this.userService.findById(id);
+  async getUserById(@Param('id') id: string, @Query('includeDeleted') includeDeleted?: string) {
+    let user;
+    if (includeDeleted === 'true') {
+      user = await this.userService.userExists(id) 
+        ? await this.userService.getAllUsersIncludingDeleted().then(users => users.find(u => (u as any).id?.toString() === id))
+        : null;
+    } else {
+      user = await this.userService.findById(id);
+    }
+    
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -107,11 +128,49 @@ export class UserController {
   
   @Roles('admin')
   @Delete(':id')
-  async deleteUserById(@Param('id') id: string) {
+  async softDeleteUserById(@Param('id') id: string, @Request() req) {
+  try {
+    // Handle case where req.user might be undefined
+    const deletedBy = req.user?.email || req.user?.id || 'admin';
+    
+    const deletedUser = await this.userService.softDeleteUser(id, deletedBy);
+    
+    return { 
+      message: 'User deleted successfully',
+      deletedUser
+    };
+  } catch (error) {
+    if (error instanceof NotFoundException) {
+      throw error;
+    }
+    throw new NotFoundException('User not found');
+  }
+}
+
+  @Roles('admin')
+  @Post(':id/restore')
+  async restoreUser(@Param('id') id: string) {
+    try {
+      const restoredUser = await this.userService.restoreUser(id);
+      return {
+        message: 'User restored successfully',
+        restoredUser
+      };
+    } catch (error) {
+      throw new NotFoundException('User not found or not deleted');
+    }
+  }
+
+  @Roles('admin')
+  @Delete(':id/permanent')
+  async hardDeleteUser(@Param('id') id: string) {
     const deletedUser = await this.userService.deleteUser(id);
     if (!deletedUser) {
       throw new NotFoundException('User not found');
     }
-    return { message: 'User deleted successfully' };
+    return { 
+      message: 'User permanently deleted',
+      deletedUser
+    };
   }
 }

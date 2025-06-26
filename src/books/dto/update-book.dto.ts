@@ -1,15 +1,34 @@
-import { IsBoolean, IsOptional } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class UpdateBookDto {
-    book_name?: string;
-    book_author?: string;
-    book_description?: string;
-    book_cover_image_url?: string;
-    book_reader_url?: string;
-    book_borrow_count?: number;
-    categories?: string[]; // Assuming _id is a string representation of ObjectId
-
-    @IsOptional()
-    @IsBoolean()
-    isAvailable?: boolean;
+        @IsOptional()
+        @IsString()
+        book_name?: string;
+    
+        @IsOptional()
+        @IsString()
+        book_author?: string;
+    
+        @IsOptional()
+        @IsString()
+        book_description?: string;
+    
+        @IsOptional()
+        @IsString()
+        book_cover_image_url?: string;
+    
+        @IsOptional()
+        @IsString()
+        book_reader_url?: string;
+    
+        @IsOptional()
+        @IsNumber()
+        book_borrow_count?: number;
+    
+        @IsOptional()
+        categories?: string[]; // Assuming _id is a string representation of ObjectId
+    
+        @IsOptional()
+        @IsBoolean()
+        isAvailable?: boolean = true;
 }

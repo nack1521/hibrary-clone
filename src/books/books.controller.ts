@@ -8,6 +8,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { BookTokenGuard } from '../common/guards/book-token.guard';
 import { TransactionsService } from '../transactions/transactions.service';
 import { UserService } from 'src/user/user.service';
+import { SearchBookDto } from './dto/search-book.dto';
 
 @Controller('books')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -52,6 +53,7 @@ export class BooksController {
     
     return this.booksService.getUserBorrowedBooks(userId.toString());
   }
+
 
   @Get(':id')
   @Roles("admin","user")
@@ -160,4 +162,8 @@ export class BooksController {
     }
   }
   
+  @Get('search/simple')
+  async simpleSearch(@Query('q') query: string) {
+    return this.booksService.searchBooks(query);
+  }
 }

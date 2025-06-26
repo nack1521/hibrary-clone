@@ -40,4 +40,6 @@ export class TransactionsController {
     const userId = request.user.id;
     return await this.transactionsService.getUserActiveTransactions(userId);
   }
+
+
 }

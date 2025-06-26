@@ -1,4 +1,4 @@
-export class UpdateCategoryDto {
-    readonly cate_name?: string;
-    readonly cate_cover_url?: string;
-}
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateCategoryDto } from './create-category.dto';
+
+export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}

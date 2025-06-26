@@ -177,5 +177,12 @@ export class BooksService {
     };
   }
 
-  
+  async searchBooks(query: string): Promise<Book[]> {
+    return this.bookModel.find({
+      $or: [
+        { book_name: { $regex: query, $options: 'i' } },
+        { book_author: { $regex: query, $options: 'i' } }
+      ]
+    }).populate('categories').exec();
+  }
 }

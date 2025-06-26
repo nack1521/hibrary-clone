@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './schemas/user.schema'; // Adjust the import path as necessary
 import { Model, Types } from 'mongoose';
@@ -101,7 +101,81 @@ export class UserService {
     }
   }
 
+  async softDeleteUser(userId: string, deletedBy?: string): Promise<User | null> {
+    try {
+      console.log('Soft deleting user with ID:', userId);
+      
+      const result = await this.userModel.findOneAndUpdate(
+        { _id: userId, isDeleted: false },
+        { 
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+        { new: true }
+      ).exec();
+      
+      if (!result) {
+        throw new NotFoundException('User not found or already deleted');
+      }
+      
+      console.log('Soft delete result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error soft deleting user:', error);
+      throw error;
+    }
+  }
+
+  // Restore soft deleted user
+  async restoreUser(userId: string): Promise<User | null> {
+    try {
+      console.log('Restoring user with ID:', userId);
+      
+      const result = await this.userModel.findOneAndUpdate(
+        { _id: userId, isDeleted: true },
+        { 
+          isDeleted: false,
+          deletedAt: null
+        },
+        { new: true }
+      ).exec();
+      
+      if (!result) {
+        throw new NotFoundException('User not found or not deleted');
+      }
+      
+      console.log('Restore result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error restoring user:', error);
+      throw error;
+    }
+  }
+
+  // Get all active users (not deleted)
   async getAllUsers(): Promise<User[]> {
+    return this.userModel.find({ isDeleted: false }).exec();
+  }
+
+  // Get all deleted users
+  async getDeletedUsers(): Promise<User[]> {
+    return this.userModel.find({ isDeleted: true }).exec();
+  }
+
+  // Get all users including deleted ones
+  async getAllUsersIncludingDeleted(): Promise<User[]> {
     return this.userModel.find().exec();
+  }
+
+  // Check if user exists (including deleted)
+  async userExists(userId: string): Promise<boolean> {
+    const user = await this.userModel.findById(userId).exec();
+    return !!user;
+  }
+
+  // Check if user is deleted
+  async isUserDeleted(userId: string): Promise<boolean> {
+    const user = await this.userModel.findById(userId).exec();
+    return user ? user.isDeleted : false;
   }
 }

@@ -36,7 +36,15 @@ export class User {
     default: []
   })
   books: BorrowedBook[];
+
+  @Prop({ type: Boolean, default: false })
+  isDeleted: boolean;
+
+  @Prop({ type: Date, default: null })
+  deletedAt: Date | null;
 }
+
+  
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
@@ -46,3 +54,8 @@ UserSchema.pre('save', async function (next) {
   }
   next();
 });
+
+
+// Add index for better query performance
+UserSchema.index({ isDeleted: 1 });
+UserSchema.index({ email: 1, isDeleted: 1 });
