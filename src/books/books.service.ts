@@ -7,6 +7,26 @@ import { Book, BookDocument } from './schemas/book.schema';
 import { Transaction, TransactionDocument } from '../transactions/schemas/transaction.schema';
 import { CategoriesService } from 'src/categories/categories.service';
 import { UserService } from 'src/user/user.service';
+import { PaginationDto } from './dto/pagination-book.dto';
+import { SearchBookDto } from './dto/search-book.dto';
+
+export interface PaginationMeta {
+  totalitem: number;
+  currentpage: number;
+  totalpage: number;
+  itemperpage: number;
+  links: {
+    first: string;
+    previous: string | null;
+    next: string | null;
+    last: string;
+  };
+}
+
+export interface PaginatedBooksResponse {
+  data: Book[];
+  meta: PaginationMeta;
+}
 
 @Injectable()
 export class BooksService {
@@ -177,6 +197,74 @@ export class BooksService {
     };
   }
 
+  async findAllWithPagination(
+    searchDto: SearchBookDto,
+    searchQuery: any = {}
+  ): Promise<PaginatedBooksResponse> {
+    const { page = 1, itemlimit = 20 } = searchDto;
+    const skip = (page - 1) * itemlimit;
+
+    // Get total count for pagination
+    const totalitem = await this.bookModel.countDocuments(searchQuery);
+    const totalpage = Math.ceil(totalitem / itemlimit);
+
+    // Get books with pagination
+    const books = await this.bookModel
+      .find(searchQuery)
+      .skip(skip)
+      .limit(itemlimit)
+      .exec();
+
+    // Build pagination links
+    const baseUrl = '/books';
+    const buildUrl = (pageNum: number) =>
+      `${baseUrl}?itemlimit=${itemlimit}&page=${pageNum}`;
+
+    const meta: PaginationMeta = {
+      totalitem,
+      currentpage: page,
+      totalpage,
+      itemperpage: itemlimit,
+      links: {
+        first: buildUrl(1),
+        previous: page > 1 ? buildUrl(page - 1) : null,
+        next: page < totalpage ? buildUrl(page + 1) : null,
+        last: buildUrl(totalpage),
+      },
+    };
+
+    return {
+      data: books,
+      meta,
+    };
+  }
+
+    async findAllWithPaginationAndParams(searchDto: SearchBookDto): Promise<PaginatedBooksResponse> {
+    const { query, book_name, book_author, categories } = searchDto;
+
+    // Build search query
+    const searchQuery: any = {};
+    if (query) {
+      searchQuery.$or = [
+        { book_name: { $regex: query, $options: 'i' } },
+        { book_author: { $regex: query, $options: 'i' } },
+        { book_description: { $regex: query, $options: 'i' } },
+      ];
+    }
+    if (book_name) {
+      searchQuery.book_name = { $regex: book_name, $options: 'i' };
+    }
+    if (book_author) {
+      searchQuery.book_author = { $regex: book_author, $options: 'i' };
+    }
+    if (categories) {
+      searchQuery['categories.cate_name'] = { $in: categories };
+    }
+
+    // Call the existing findAllWithPagination function
+    return this.findAllWithPagination(searchDto, searchQuery);
+  }
+
   async searchBooks(query: string): Promise<Book[]> {
     return this.bookModel.find({
       $or: [
@@ -185,4 +273,181 @@ export class BooksService {
       ]
     }).populate('categories').exec();
   }
+
+async addFirst10BooksFromGutenberg(limit: number = 1000): Promise<void> {
+  try {
+    const axios = require('axios');
+    const response = await axios.get('https://gutendex.com/books/');
+    const books = response.data.results;
+
+    // Limit the number of books
+    const limitedBooks = books.slice(0, limit);
+
+    // Define main category mapping
+    const mainCategoryMapping: { [key: string]: string } = {
+      'fiction': 'Fiction',
+      'drama': 'Drama',
+      'poetry': 'Poetry',
+      'biography': 'Biography',
+      'children': 'Children',
+      'history': 'History',
+      'science': 'Science',
+      'philosophy': 'Philosophy',
+      'religion': 'Religion',
+      'music': 'Music',
+      'art': 'Art',
+      'humor': 'Humor',
+      'travel': 'Travel',
+      'war': 'War',
+      'adventure': 'Adventure',
+      'mystery': 'Mystery',
+      'fantasy': 'Fantasy',
+    };
+
+    for (const bookData of limitedBooks) {
+      const gutenbergCategories = bookData.subjects || [];
+      const categoryIds: string[] = [];
+
+      // Map subcategories to main categories
+      const mainCategories = new Set<string>();
+      for (const categoryName of gutenbergCategories) {
+        for (const [key, mainCategory] of Object.entries(mainCategoryMapping)) {
+          if (categoryName.toLowerCase().includes(key)) {
+            mainCategories.add(mainCategory);
+          }
+        }
+      }
+
+      // Save only main categories
+      for (const mainCategory of mainCategories) {
+        let category = await this.categoryService.findByName(mainCategory);
+
+        if (!category) {
+          category = await this.categoryService.create({ cate_name: mainCategory });
+        }
+
+        categoryIds.push((category as any)._id);
+      }
+
+      const createBookDto: CreateBookDto = {
+        book_name: bookData.title,
+        book_author: bookData.authors.map((author: any) => author.name).join(', '),
+        book_description: bookData.description || 'No description available.',
+        book_cover_image_url: bookData.formats['image/jpeg'] || '',
+        book_reader_url: bookData.formats['text/html'] || bookData.formats['application/epub+zip'] || '',
+        categories: categoryIds,
+        book_borrow_count: 0,
+        isAvailable: true,
+      };
+
+      const savedBook = await this.create(createBookDto);
+      console.log('Book added successfully:', savedBook);
+    }
+  } catch (error) {
+    console.error('Error adding books from Gutenberg:', error);
+  }
+}
+
+async addRandomBooksFromGutenberg(limit: number = 1000): Promise<void> {
+  try {
+    const axios = require('axios');
+    let allBooks: any[] = [];
+    let nextUrl: string | null = 'https://gutendex.com/books/';
+
+    // Fetch books until we have enough or there are no more pages
+    while (allBooks.length < limit && nextUrl) {
+      const response = await axios.get(nextUrl);
+      const data = response.data;
+
+      // Add the books from the current page to the list
+      allBooks = allBooks.concat(data.results);
+
+      // Update the next URL for pagination
+      nextUrl = data.next;
+
+      console.log(`Fetched ${allBooks.length} books so far...`);
+    }
+
+    // Shuffle the books array
+    const shuffledBooks = allBooks.sort(() => Math.random() - 0.5);
+
+    // Select a random subset of books
+    const randomBooks = shuffledBooks.slice(0, limit);
+
+    // Define main category mapping
+    const mainCategoryMapping: { [key: string]: string } = {
+      'fiction': 'Fiction',
+      'drama': 'Drama',
+      'poetry': 'Poetry',
+      'biography': 'Biography',
+      'children': 'Children',
+      'history': 'History',
+      'science': 'Science',
+      'philosophy': 'Philosophy',
+      'religion': 'Religion',
+      'music': 'Music',
+      'art': 'Art',
+      'humor': 'Humor',
+      'travel': 'Travel',
+      'war': 'War',
+      'adventure': 'Adventure',
+      'mystery': 'Mystery',
+      'fantasy': 'Fantasy',
+    };
+
+    for (const bookData of randomBooks) {
+      try {
+        const gutenbergCategories = bookData.subjects || [];
+        const categoryIds: string[] = [];
+
+        // Map subcategories to main categories
+        const mainCategories = new Set<string>();
+        for (const categoryName of gutenbergCategories) {
+          for (const [key, mainCategory] of Object.entries(mainCategoryMapping)) {
+            if (categoryName.toLowerCase().includes(key)) {
+              mainCategories.add(mainCategory);
+            }
+          }
+        }
+
+        // Save only main categories
+        for (const mainCategory of mainCategories) {
+          let category = await this.categoryService.findByName(mainCategory);
+
+          if (!category) {
+            category = await this.categoryService.create({ cate_name: mainCategory });
+          }
+
+          categoryIds.push((category as any)._id);
+        }
+
+        // Skip books with missing required fields
+        if (!bookData.title || !bookData.authors || bookData.authors.length === 0) {
+          console.warn(`Skipping book due to missing required fields: ${bookData.title || 'Unknown Title'}`);
+          continue;
+        }
+
+        const createBookDto: CreateBookDto = {
+          book_name: bookData.title,
+          book_author: bookData.authors.map((author: any) => author.name).join(', '),
+          book_description: bookData.description || 'No description available.',
+          book_cover_image_url: bookData.formats['image/jpeg'] || '',
+          book_reader_url: bookData.formats['text/html'] || bookData.formats['application/epub+zip'] || '',
+          categories: categoryIds,
+          book_borrow_count: 0,
+          isAvailable: true,
+        };
+
+        const savedBook = await this.create(createBookDto);
+        console.log('Book added successfully:', savedBook);
+      } catch (bookError) {
+        console.error(`Error adding book: ${bookData.title || 'Unknown Title'}`, bookError.message);
+        // Skip this book and continue with the next one
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching books from Gutenberg:', error);
+  }
+}
+
 }

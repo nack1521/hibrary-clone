@@ -9,9 +9,10 @@ import { BookTokenGuard } from '../common/guards/book-token.guard';
 import { TransactionsService } from '../transactions/transactions.service';
 import { UserService } from 'src/user/user.service';
 import { SearchBookDto } from './dto/search-book.dto';
+import { PaginationDto } from './dto/pagination-book.dto';
 
 @Controller('books')
-@UseGuards(JwtAuthGuard, RolesGuard)
+
 export class BooksController {
   constructor(
     private readonly booksService: BooksService,
@@ -19,6 +20,7 @@ export class BooksController {
     private readonly userService: UserService,
   ) {}
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   create(@Body() createBookDto: CreateBookDto) {
     return this.booksService.create(createBookDto);
@@ -26,20 +28,27 @@ export class BooksController {
 
   // Move suggestions route BEFORE :id route to avoid conflicts
   @Get('suggestions')
-  @Roles("admin", "user")
   async getTopBorrowedBooks(@Query('limit') limit: string = '10') {
     const limitNum = parseInt(limit) || 10;
     return this.booksService.getTopBorrowedBooks(limitNum);
   }
 
+  // @Get()
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles("admin","user")
+  // findAll() {
+  //   return this.booksService.findAll();
+  // }
+
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin","user")
-  findAll() {
-    return this.booksService.findAll();
+  async findAllWithPagination(@Query() paginationDto: PaginationDto) {
+    return this.booksService.findAllWithPagination(paginationDto);
   }
 
   @Get('my-borrowed')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   async getUserBorrowedBooks(@Req() req) {
     console.log('Request user:', req.user); // Add this to debug
     
@@ -56,24 +65,28 @@ export class BooksController {
 
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin","user")
   findOne(@Param('id') id: string) {
     return this.booksService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   update(@Param('id') id: string, @Body() updateBookDto: UpdateBookDto) {
     return this.booksService.update(id, updateBookDto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   remove(@Param('id') id: string) {
     return this.booksService.remove(id);
   }
 
   @Post(':bookId/borrow')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin", "user")
   async borrowBook(@Param('bookId') bookId: string, @Req() request) {
 
@@ -125,7 +138,7 @@ export class BooksController {
   }
 
   @Get(':bookId/read')
-  @UseGuards(BookTokenGuard) 
+  @UseGuards(JwtAuthGuard, RolesGuard, BookTokenGuard)
   async readBook(@Param('bookId') bookId: string, @Req() request) {
     const transaction = request.transaction;
     return {
@@ -137,6 +150,7 @@ export class BooksController {
   }
 
   @Post(':bookId/return')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin", "user")
   async returnBook(@Param('bookId') bookId: string, @Req() request) {
     const userId = request.user?.id || request.user?._id;
@@ -165,5 +179,30 @@ export class BooksController {
   @Get('search/simple')
   async simpleSearch(@Query('q') query: string) {
     return this.booksService.searchBooks(query);
+  }
+
+  @Get('search/advanced')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'user')
+  async advancedSearch(@Query() searchDto: SearchBookDto) {
+    return this.booksService.findAllWithPaginationAndParams(searchDto);
+  }
+
+  @Post('fetch-gutenberg-books')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async fetchBooks(@Query('limit') limit: string = '1000') {
+    const limitNum = parseInt(limit) || 1000;
+    await this.booksService.addFirst10BooksFromGutenberg(limitNum);
+    return { message: `${limitNum} books fetched and added successfully` };
+  }
+
+  @Post('fetch-random-gutenberg-books')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async fetchRandomBooks(@Query('limit') limit: string = '1000') {
+    const limitNum = parseInt(limit) || 1000;
+    await this.booksService.addRandomBooksFromGutenberg(limitNum);
+    return { message: `${limitNum} random books fetched and added successfully` };
   }
 }

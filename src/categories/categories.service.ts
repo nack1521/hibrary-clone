@@ -19,6 +19,10 @@ export class CategoriesService {
     return this.categoryModel.find().exec();
   }
 
+  async findByName(name: string): Promise<Category | null> {
+    return this.categoryModel.findOne({ cate_name: name }).exec();
+  }
+
   async findOne(id: string): Promise<Category | null> {
     return this.categoryModel.findById(id).exec();
   }

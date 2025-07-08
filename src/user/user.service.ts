@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './schemas/user.schema'; // Adjust the import path as necessary
 import { Model, Types } from 'mongoose';
@@ -12,6 +12,13 @@ export class UserService {
   ) {}
 
   async create(registerUserDto: RegisterUserDto): Promise<User> {
+    // Check if user with this email already exists
+    const existingUser = await this.userModel.findOne({ email: registerUserDto.email }).exec();
+    
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+    
     const newUser = new this.userModel(registerUserDto);
     return newUser.save();
   }
@@ -26,6 +33,14 @@ export class UserService {
 
   async findById(userId: string): Promise<UserDocument | null> {
     return await this.userModel.findById(userId).exec();
+  }
+
+  async updateRefreshToken(userId: string, refreshToken: any): Promise<User | null> {
+    return await this.userModel.findByIdAndUpdate(
+      userId,
+      { refreshToken },
+      { new: true }
+    ).exec();
   }
 
   // Add this method to add a borrowed book to user's books array
