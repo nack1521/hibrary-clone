@@ -10,6 +10,9 @@ import { ConfigModule } from '@nestjs/config';
 import refreshJwtConfig from './config/refresh-jwt.config';
 import jwtConfig from './config/jwt.config';
 import { RefreshJwtStrategy } from './strategies/refresh.strategy';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ResetToken, ResetTokenSchema } from './schemas/reset-token.schema';
+import { MailService } from './services/mail.service';
 
 @Module({
   imports: [
@@ -18,8 +21,11 @@ import { RefreshJwtStrategy } from './strategies/refresh.strategy';
     ConfigModule.forFeature(jwtConfig),
     ConfigModule.forFeature(refreshJwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
+    MongooseModule.forFeature([
+      { name: ResetToken.name, schema: ResetTokenSchema },
+  ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, RefreshJwtStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, RefreshJwtStrategy, MailService],
 })
 export class AuthModule {}

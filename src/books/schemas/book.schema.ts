@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import e from 'express';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type BookDocument = Book & Document;
 
@@ -24,7 +23,18 @@ export class Book {
     @Prop({ required: true, default: 0 })
     book_borrow_count: number;
 
-    
+    @Prop({
+        type: [
+            {
+                _id: { type: Types.ObjectId, ref: 'Category' ,required: true },
+                cate_name: { type: String, required: true }
+            }
+        ]
+    })
+    categories: { _id : Types.ObjectId, cate_name: string }[];
+
+    @Prop({ type: Boolean, default: true })
+    isAvailable: boolean;
 }
 
 export const BookSchema = SchemaFactory.createForClass(Book);

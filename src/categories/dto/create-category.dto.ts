@@ -1,4 +1,11 @@
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+
 export class CreateCategoryDto {
-    readonly cate_name: string;
-    readonly cate_cover_url: string;
+  @IsNotEmpty()
+  @IsString()
+  cate_name: string;
+
+  @IsOptional()
+  @IsString()
+  cate_cover_url?: string;
 }
